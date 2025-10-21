@@ -133,7 +133,7 @@ export default function Categorias() {
                   </span>
                 </td>
                 <td>{c.totalTermos || 0} {(c.totalTermos || 0) === 1 ? 'termo' : 'termos'}</td>
-                <td>{c.criadoEm}</td>
+                <td>{c.criadoEm?.split('-').reverse().join('/')}</td>
                 <td className="text-right">
                   <button
                     className="p-2 rounded hover:bg-slate-100"

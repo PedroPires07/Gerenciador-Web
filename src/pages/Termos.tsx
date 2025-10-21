@@ -15,7 +15,6 @@ export default function Termos() {
   const [categorias, setCategorias] = useState<any[]>([])
   const [termos, setTermos] = useState<any[]>([])
 
-  // NOVO
   const [showNew, setShowNew] = useState(false)
   const [novo, setNovo] = useState({
     cientifico: '',
@@ -25,7 +24,6 @@ export default function Termos() {
     status: 'Pendente' as Status,
   })
 
-  // EDITAR
   const [edit, setEdit] = useState<null | {
     id: string
     cientifico: string
@@ -35,7 +33,6 @@ export default function Termos() {
     status: Status
   }>(null)
 
-  // EXCLUIR
   const [delId, setDelId] = useState<string | null>(null)
 
   React.useEffect(() => {
@@ -186,7 +183,7 @@ export default function Termos() {
                     ? (<span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={16}/> Verificado</span>)
                     : (<span className="inline-flex items-center gap-1 text-slate-600"><Hourglass size={16}/> Pendente</span>)}
                 </td>
-                <td>{t.atualizadoEm}</td>
+                <td>{t.atualizadoEm?.split('-').reverse().join('/')}</td>
                 <td className="text-right">
                   <button className="p-2 rounded hover:bg-slate-100" title="Editar" onClick={() => abrirEdicao(t)}><Edit2 size={16}/></button>
                   <button className="p-2 rounded hover:bg-slate-100" title="Excluir" onClick={() => setDelId(t.id)}><Trash2 size={16}/></button>

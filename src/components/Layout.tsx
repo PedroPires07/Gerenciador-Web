@@ -1,4 +1,4 @@
-// src/components/Layout.tsx
+
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Stethoscope, LayoutGrid, BookText, Tags, Settings, LogOut } from 'lucide-react'
