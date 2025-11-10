@@ -9,7 +9,6 @@ export default function AuthLogin() {
   const { signIn } = useAuth()
   const [email, setEmail] = React.useState('')
   const [pass, setPass]   = React.useState('')
-
   const [error, setError] = React.useState('')
 
   async function handleLogin() {
@@ -21,8 +20,8 @@ export default function AuthLogin() {
       console.error('Erro no login:', err)
       if (err?.code === 'auth/too-many-requests') {
         setError('Muitas tentativas de login. Por favor, aguarde alguns minutos e tente novamente.')
-      } else if (err?.code === 'auth/wrong-password') {
-        setError('Senha incorreta.')
+      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        setError('E-mail ou senha incorretos.')
       } else if (err?.code === 'auth/user-not-found') {
         setError('Usuário não encontrado.')
       } else if (err?.code === 'auth/invalid-email') {
@@ -89,7 +88,6 @@ export default function AuthLogin() {
         <button 
           onClick={handleLogin} 
           className="btn w-full mt-6"
-          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
         >
           <LogIn size={16} /> Entrar
         </button>
