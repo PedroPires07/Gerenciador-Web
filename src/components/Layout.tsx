@@ -1,4 +1,4 @@
-// src/components/Layout.tsx
+
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Stethoscope, LayoutGrid, BookText, Tags, Settings, LogOut } from 'lucide-react'
@@ -24,7 +24,7 @@ export function Layout({ title, subtitle, children }: Props) {
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r min-h-screen hidden md:block">
           <div className="flex items-center gap-2 px-5 h-16 border-b">
-            <div className="h-9 w-9 grid place-items-center rounded-xl bg-emerald-600 text-white">
+            <div className="h-9 w-9 grid place-items-center rounded-xl bg-brand-600 text-white">
               <Stethoscope size={18} />
             </div>
             <div className="font-semibold">Dicionário da Saúde</div>
@@ -68,7 +68,7 @@ function Item({ to, icon, label }: { to: string; icon: React.ReactNode; label: s
       to={to}
       className={({ isActive }) =>
         `flex items-center gap-2 px-3 py-2 rounded-lg ${
-          isActive ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-100'
+          isActive ? 'bg-purple-50 text-purple-700' : 'hover:bg-slate-100'
         }`
       }
       end

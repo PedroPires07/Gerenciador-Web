@@ -1,16 +1,38 @@
-// Regras básicas (dev) — ajuste para produção!
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null }
+    function signedIn() { 
+      return request.auth != null 
+    }
+    
+    function isAdmin() {
+      return signedIn() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin'
+    }
 
+    // Regras para perfis
     match /profiles/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
-    match /termos/{id} { allow read, write: if signedIn(); }
-    match /categorias/{id} { allow read, write: if signedIn(); }
-    match /logs/{id} { allow read, write: if signedIn(); }
+    // Regras para termos
+    match /termos/{id} {
+      allow read: if true;
+      allow write: if signedIn() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Regras para categorias
+    match /categorias/{id} {
+      allow read: if true;
+      allow write: if signedIn() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Regras para logs
+    match /logs/{id} {
+      allow read, write: if signedIn();
+    }
   }
 }

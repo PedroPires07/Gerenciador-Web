@@ -2,11 +2,54 @@ import React, { useMemo, useState } from 'react'
 import { Layout } from '../components/Layout'
 import { categoriasApi, termosApi } from '../data/repo'
 import { Plus, CheckCircle2, Hourglass, Edit2, Trash2 } from 'lucide-react'
+import { auth, db } from '../integrations/firebase/client'
+import { User } from 'firebase/auth'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 
 type Area = 'Medicina' | 'Odontologia'
 type Status = 'Verificado' | 'Pendente'
 
 export default function Termos() {
+  const [user, setUser] = useState<User | null>(null);
+
+  // Verificar estado da autenticação
+  React.useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      console.log('Estado da autenticação:', currentUser ? 'Autenticado' : 'Não autenticado');
+      if (currentUser) {
+        try {
+          // Verificar token
+          const tokenResult = await currentUser.getIdTokenResult();
+          console.log('Claims do usuário:', tokenResult.claims);
+          
+          // Verificar perfil no Firestore
+          const profileDoc = await getDoc(doc(db, 'profiles', currentUser.uid));
+          console.log('Perfil do usuário:', profileDoc.data());
+          
+          if (!profileDoc.exists()) {
+            console.log('Criando perfil de administrador...');
+            await setDoc(doc(db, 'profiles', currentUser.uid), {
+              id: currentUser.uid,
+              email: currentUser.email,
+              role: 'admin',
+              nome: currentUser.displayName || '',
+              ativo: true
+            });
+          } else if (profileDoc.data()?.role !== 'admin') {
+            console.log('Atualizando perfil para administrador...');
+            await updateDoc(doc(db, 'profiles', currentUser.uid), {
+              role: 'admin'
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao verificar/atualizar perfil:', error);
+        }
+      }
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [busca, setBusca] = useState('')
   const [area, setArea] = useState<'Todas' | Area>('Todas')
   const [categoria, setCategoria] = useState('Todas')
@@ -62,37 +105,68 @@ export default function Termos() {
   }
 
   function abrirEdicao(t: any) {
-    setEdit({
-      id: t.id,
-      cientifico: t.cientifico ?? '',
-      populares: Array.isArray(t.populares) ? t.populares.join(', ') : '',
-      area: t.area,
-      categoria: t.categoria ?? '',
-      status: t.status,
-    })
+    console.log('Dados do termo para edição:', t);
+    try {
+      setEdit({
+        id: t.id,
+        cientifico: t.cientifico ?? '',
+        populares: Array.isArray(t.populares) ? t.populares.join(', ') : '',
+        area: t.area,
+        categoria: t.categoria ?? '',
+        status: t.status,
+      });
+      console.log('Modal de edição aberto');
+    } catch (error) {
+      console.error('Erro ao abrir edição:', error);
+      alert('Erro ao abrir o formulário de edição. Por favor, tente novamente.');
+    }
   }
 
   async function salvarEdicao() {
     if (!edit) return
-    const atualizadoEm = new Date().toISOString().slice(0, 10)
-    const patch = {
-      cientifico: edit.cientifico.trim(),
-      populares: edit.populares ? edit.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
-      area: edit.area,
-      categoria: edit.categoria,
-      status: edit.status,
-      atualizadoEm,
+    if (!user) {
+      console.error('Usuário não autenticado');
+      alert('Você precisa estar autenticado para realizar esta ação.');
+      return;
     }
-    await termosApi.update(edit.id, patch as any)
-    setTermos(prev => prev.map(t => (t.id === edit.id ? { ...t, ...patch } : t)))
-    setEdit(null)
+    try {
+      const idToken = await user.getIdToken();
+      console.log('Token do usuário:', idToken);
+      const atualizadoEm = new Date().toISOString().slice(0, 10)
+      const patch = {
+        cientifico: edit.cientifico.trim(),
+        populares: edit.populares ? edit.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
+        area: edit.area,
+        categoria: edit.categoria,
+        status: edit.status,
+        atualizadoEm,
+      }
+      await termosApi.update(edit.id, patch as any)
+      setTermos(prev => prev.map(t => (t.id === edit.id ? { ...t, ...patch } : t)))
+      setEdit(null)
+    } catch (error) {
+      console.error('Erro ao salvar edição:', error)
+      alert('Erro ao salvar as alterações. Por favor, tente novamente.')
+    }
   }
 
   async function confirmarExclusao() {
     if (!delId) return
-    await termosApi.remove(delId)
-    setTermos(prev => prev.filter(t => t.id !== delId))
-    setDelId(null)
+    if (!user) {
+      console.error('Usuário não autenticado');
+      alert('Você precisa estar autenticado para realizar esta ação.');
+      return;
+    }
+    try {
+      const idToken = await user.getIdToken();
+      console.log('Token do usuário:', idToken);
+      await termosApi.remove(delId)
+      setTermos(prev => prev.filter(t => t.id !== delId))
+      setDelId(null)
+    } catch (error) {
+      console.error('Erro ao excluir termo:', error)
+      alert('Erro ao excluir o termo. Por favor, tente novamente.')
+    }
   }
 
   const filtrados = useMemo(() => {
@@ -180,16 +254,36 @@ export default function Termos() {
               <tr key={t.id} className="border-t">
                 <td className="py-3">{t.cientifico}</td>
                 <td className="space-x-1">{t.populares?.map((p: string, i: number) => (<span key={i} className="badge bg-slate-100 text-slate-700">{p}</span>))}</td>
-                <td><span className={'badge ' + (t.area === 'Medicina' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700')}>{t.area}</span></td>
+                <td><span className={'badge ' + (t.area === 'Medicina' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700')}>{t.area}</span></td>
                 <td>{t.categoria}</td>
                 <td>{t.status === 'Verificado'
-                    ? (<span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={16}/> Verificado</span>)
+                    ? (<span className="inline-flex items-center gap-1 text-green-700"><CheckCircle2 size={16}/> Verificado</span>)
                     : (<span className="inline-flex items-center gap-1 text-slate-600"><Hourglass size={16}/> Pendente</span>)}
                 </td>
                 <td>{t.atualizadoEm}</td>
                 <td className="text-right">
-                  <button className="p-2 rounded hover:bg-slate-100" title="Editar" onClick={() => abrirEdicao(t)}><Edit2 size={16}/></button>
-                  <button className="p-2 rounded hover:bg-slate-100" title="Excluir" onClick={() => setDelId(t.id)}><Trash2 size={16}/></button>
+                  <button 
+                    className="p-2 rounded hover:bg-slate-100" 
+                    title="Editar" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log('Abrindo edição para:', t.id);
+                      abrirEdicao(t);
+                    }}
+                  >
+                    <Edit2 size={16}/>
+                  </button>
+                  <button 
+                    className="p-2 rounded hover:bg-slate-100" 
+                    title="Excluir" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log('Tentando excluir:', t.id);
+                      setDelId(t.id);
+                    }}
+                  >
+                    <Trash2 size={16}/>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -202,8 +296,16 @@ export default function Termos() {
 
       {/* Modal Editar */}
       {edit && (
-        <div className="fixed inset-0 bg-black/30 grid place-items-center z-50">
-          <div className="card w-[560px] max-w-[95vw]">
+        <div 
+          className="fixed inset-0 bg-black/30 grid place-items-center z-50"
+          onClick={(e) => {
+            // Fecha o modal apenas se clicar no fundo escuro
+            if (e.target === e.currentTarget) {
+              setEdit(null);
+            }
+          }}
+        >
+          <div className="card w-[560px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
             <div className="text-lg font-semibold mb-2">Editar termo</div>
             <div className="grid gap-3">
               <input className="input" placeholder="Termo científico" value={edit.cientifico} onChange={e => setEdit({ ...edit, cientifico: e.target.value })}/>
@@ -230,8 +332,16 @@ export default function Termos() {
 
       {/* Modal Excluir */}
       {delId && (
-        <div className="fixed inset-0 bg-black/30 grid place-items-center z-50">
-          <div className="card w-[520px] max-w-[95vw]">
+        <div 
+          className="fixed inset-0 bg-black/30 grid place-items-center z-50"
+          onClick={(e) => {
+            // Fecha o modal apenas se clicar no fundo escuro
+            if (e.target === e.currentTarget) {
+              setDelId(null);
+            }
+          }}
+        >
+          <div className="card w-[520px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
             <div className="text-lg font-semibold mb-2">Excluir termo</div>
             <p className="text-slate-600 mb-4">Tem certeza que deseja excluir este termo? Esta ação não pode ser desfeita.</p>
             <div className="flex justify-end gap-2">

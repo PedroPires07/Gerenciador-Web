@@ -39,13 +39,13 @@ export default function AuthRegister() {
 
         <div className="flex items-center gap-2 mb-4 text-sm">
           <input type="checkbox" className="h-4 w-4"/>
-          <span>Aceito os <a href="#" className="text-emerald-700">termos de uso</a></span>
+          <span>Aceito os <a href="#" className="text-purple-700">termos de uso</a></span>
         </div>
 
         <button onClick={async()=>{ const nome=(document.querySelector('#nome') as HTMLInputElement)?.value; const email=(document.querySelector('#email') as HTMLInputElement)?.value; const pass=(document.querySelector('#pass') as HTMLInputElement)?.value; await signUp(nome,email,pass); nav('/') }} className="btn w-full"><UserPlus size={16}/> Criar conta</button>
 
         <div className="text-center mt-3 text-sm text-slate-600">
-          Já tem uma conta? <Link to="/login" className="text-emerald-700 font-medium">Entrar</Link>
+          Já tem uma conta? <Link to="/login" className="text-purple-700 font-medium">Entrar</Link>
         </div>
       </div>
     </div>

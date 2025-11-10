@@ -126,7 +126,7 @@ export default function Categorias() {
                   <span
                     className={
                       'badge ' +
-                      (c.area === 'Medicina' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700')
+                      (c.area === 'Medicina' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700')
                     }
                   >
                     {c.area}

@@ -1,10 +1,13 @@
+/* tailwindcss directives */
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
 
 :root { --border:#ecf1f6 }
 .card { @apply bg-white border rounded-xl p-4 shadow-sm; border-color:var(--border); box-shadow:0 6px 18px rgba(0,0,0,.04) }
 .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-white bg-brand-600 hover:bg-brand-700 transition }
-.input { @apply w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-200; border-color:var(--border) }
-.select { @apply w-full rounded-xl border px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-emerald-200; border-color:var(--border) }
+.input { @apply w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-purple-200; border-color:var(--border) }
+.select { @apply w-full rounded-xl border px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-purple-200; border-color:var(--border) }
 .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium }

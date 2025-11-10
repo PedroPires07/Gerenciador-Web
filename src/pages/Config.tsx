@@ -79,7 +79,7 @@ export default function Config() {
   return (
     <Layout title="Configurações" subtitle="Gerencie seu perfil e segurança">
       {msg && (
-        <div className={`p-3 rounded-lg ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
+        <div className={`p-3 rounded-lg ${msg.type === 'ok' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
           {msg.text}
         </div>
       )}
