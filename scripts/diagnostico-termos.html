@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnóstico - Termos no Firestore</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2D1C87;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #2D1C87;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #231569;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .log {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      max-height: 500px;
+      overflow-y: auto;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .log-item {
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .success { color: #059669; }
+    .error { color: #dc2626; }
+    .info { color: #2563eb; }
+    .warning { color: #d97706; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background: #2D1C87;
+      color: white;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-cientifico { background: #e0e7ff; color: #4338ca; }
+    .badge-popular { background: #fef3c7; color: #d97706; }
+    .badge-misto { background: #f3e8ff; color: #7c3aed; }
+    input, select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin: 5px;
+    }
+    .form-group {
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Diagnóstico e Testes - Termos Firestore</h1>
+    
+    <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+      <strong>⚠️ Autenticação Necessária</strong>
+      <div style="margin-top: 10px;">
+        <input type="email" id="email" placeholder="Email do admin" style="width: 250px;">
+        <input type="password" id="password" placeholder="Senha" style="width: 200px;">
+        <button onclick="fazerLogin()" id="btnLogin">Login</button>
+      </div>
+    </div>
+
+    <div>
+      <button onclick="listarTermos()" id="btnListar" disabled>📋 Listar Todos os Termos</button>
+      <button onclick="testarCriacaoPopular()" id="btnTestar" disabled>🧪 Testar Criar Termo Popular</button>
+      <button onclick="verificarPermissoes()" id="btnPermissoes" disabled>🔒 Verificar Permissões</button>
+      <button onclick="limparLog()">🗑️ Limpar Log</button>
+    </div>
+
+    <div class="form-group" id="formTeste" style="display: none; background: #f0f9ff; padding: 15px; border-radius: 6px; margin-top: 20px;">
+      <h3>Teste de Criação de Termo Popular</h3>
+      <input type="text" id="nomePopular" placeholder="Nome popular (ex: Pressão alta)" style="width: 300px;">
+      <select id="categoria">
+        <option value="">Selecione categoria</option>
+      </select>
+      <button onclick="criarTermoPopular()">Criar Termo Popular</button>
+    </div>
+
+    <div id="tabelaTermos"></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, getDocs, addDoc, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCpemY_iGcwMRVCI0Zi9_pXpFnevYund1U",
+      authDomain: "gerenciador-web-admin.firebaseapp.com",
+      projectId: "gerenciador-web-admin",
+      storageBucket: "gerenciador-web-admin.firebasestorage.app",
+      messagingSenderId: "156926606491",
+      appId: "1:156926606491:web:84af4a3d92837d439a1a3e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let categorias = [];
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(item);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    window.limparLog = function() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    window.fazerLogin = async function() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const btnLogin = document.getElementById('btnLogin');
+
+      if (!email || !password) {
+        log('❌ Por favor, insira email e senha', 'error');
+        return;
+      }
+
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Autenticando...';
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        const profileRef = doc(db, 'profiles', user.uid);
+        let profileSnap = await getDoc(profileRef);
+        
+        if (!profileSnap.exists()) {
+          await setDoc(profileRef, {
+            email: user.email,
+            role: 'admin',
+            criadoEm: new Date().toISOString()
+          });
+          log('✅ Perfil de admin criado', 'success');
+        } else {
+          const profile = profileSnap.data();
+          if (profile.role !== 'admin') {
+            log('❌ Usuário não é admin', 'error');
+            btnLogin.disabled = false;
+            btnLogin.textContent = 'Login';
+            return;
+          }
+        }
+
+        log(`✅ Autenticado como: ${user.email}`, 'success');
+        log(`🔑 UID: ${user.uid}`, 'info');
+        
+        document.getElementById('btnListar').disabled = false;
+        document.getElementById('btnTestar').disabled = false;
+        document.getElementById('btnPermissoes').disabled = false;
+        document.getElementById('formTeste').style.display = 'block';
+        btnLogin.textContent = '✓ Autenticado';
+        document.getElementById('email').disabled = true;
+        document.getElementById('password').disabled = true;
+
+        // Carregar categorias
+        await carregarCategorias();
+
+      } catch (error) {
+        log(`❌ Erro no login: ${error.message}`, 'error');
+        console.error(error);
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Login';
+      }
+    }
+
+    async function carregarCategorias() {
+      try {
+        const catSnap = await getDocs(collection(db, 'categorias'));
+        categorias = catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const select = document.getElementById('categoria');
+        categorias.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat.nome;
+          option.textContent = `${cat.nome} (${cat.area})`;
+          select.appendChild(option);
+        });
+        
+        log(`✅ ${categorias.length} categorias carregadas`, 'success');
+      } catch (error) {
+        log(`❌ Erro ao carregar categorias: ${error.message}`, 'error');
+      }
+    }
+
+    window.listarTermos = async function() {
+      log('📋 Buscando todos os termos...', 'info');
+      try {
+        const termosSnap = await getDocs(collection(db, 'termos'));
+        const termos = termosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        log(`✅ ${termos.length} termos encontrados`, 'success');
+        
+        let cientificos = 0, populares = 0, mistos = 0, semTipo = 0;
+        
+        termos.forEach(t => {
+          if (t.tipo === 'cientifico') cientificos++;
+          else if (t.tipo === 'popular') populares++;
+          else if (t.tipo === 'misto') mistos++;
+          else semTipo++;
+        });
+        
+        log(`📊 Científicos: ${cientificos} | Populares: ${populares} | Mistos: ${mistos} | Sem tipo: ${semTipo}`, 'info');
+        
+        // Criar tabela
+        let html = '<table><thead><tr><th>ID</th><th>Tipo</th><th>Científico</th><th>Populares</th><th>Categoria</th><th>Status</th></tr></thead><tbody>';
+        
+        termos.forEach(t => {
+          const tipoBadge = t.tipo === 'cientifico' ? 'badge-cientifico' : 
+                           t.tipo === 'popular' ? 'badge-popular' : 
+                           t.tipo === 'misto' ? 'badge-misto' : '';
+          const tipoTexto = t.tipo || 'N/A';
+          
+          html += `<tr>
+            <td>${t.id.substring(0, 8)}...</td>
+            <td><span class="badge ${tipoBadge}">${tipoTexto}</span></td>
+            <td>${t.cientifico || '-'}</td>
+            <td>${Array.isArray(t.populares) ? t.populares.join(', ') : '-'}</td>
+            <td>${t.categoria || '-'}</td>
+            <td>${t.status || '-'}</td>
+          </tr>`;
+        });
+        
+        html += '</tbody></table>';
+        document.getElementById('tabelaTermos').innerHTML = html;
+        
+        // Log detalhado
+        termos.forEach(t => {
+          log(`  ${t.tipo || 'SEM TIPO'}: "${t.cientifico || 'N/A'}" / [${t.populares?.join(', ') || 'N/A'}]`, 'info');
+        });
+        
+      } catch (error) {
+        log(`❌ Erro ao listar termos: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    window.verificarPermissoes = async function() {
+      log('🔒 Verificando permissões...', 'info');
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ Usuário não autenticado', 'error');
+          return;
+        }
+        
+        log(`✅ Usuário autenticado: ${user.email}`, 'success');
+        
+        const token = await user.getIdTokenResult();
+        log(`🔑 Token obtido`, 'success');
+        log(`   Claims: ${JSON.stringify(token.claims, null, 2)}`, 'info');
+        
+        const profileRef = doc(db, 'profiles', user.uid);
+        const profileSnap = await getDoc(profileRef);
+        
+        if (profileSnap.exists()) {
+          const profile = profileSnap.data();
+          log(`✅ Perfil encontrado:`, 'success');
+          log(`   Role: ${profile.role}`, 'info');
+          log(`   Email: ${profile.email}`, 'info');
+        } else {
+          log(`❌ Perfil não encontrado no Firestore`, 'error');
+        }
+        
+      } catch (error) {
+        log(`❌ Erro ao verificar permissões: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    window.testarCriacaoPopular = function() {
+      document.getElementById('formTeste').scrollIntoView({ behavior: 'smooth' });
+      log('📝 Preencha o formulário acima e clique em "Criar Termo Popular"', 'info');
+    }
+
+    window.criarTermoPopular = async function() {
+      const nomePopular = document.getElementById('nomePopular').value.trim();
+      const categoria = document.getElementById('categoria').value;
+      
+      if (!nomePopular || !categoria) {
+        log('❌ Preencha o nome popular e selecione uma categoria', 'error');
+        return;
+      }
+      
+      log(`🧪 Tentando criar termo popular: "${nomePopular}"`, 'info');
+      
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ Usuário não autenticado', 'error');
+          return;
+        }
+        
+        const dadosTermo = {
+          cientifico: '',
+          populares: [nomePopular],
+          descricao: 'Termo de teste criado via script de diagnóstico',
+          tipo: 'popular',
+          area: 'Medicina',
+          categoria: categoria,
+          status: 'Pendente',
+          atualizadoEm: new Date().toISOString().slice(0, 10)
+        };
+        
+        log(`📤 Dados a serem enviados:`, 'info');
+        log(`   ${JSON.stringify(dadosTermo, null, 2)}`, 'info');
+        
+        const docRef = await addDoc(collection(db, 'termos'), dadosTermo);
+        
+        log(`✅ Termo popular criado com sucesso!`, 'success');
+        log(`   ID: ${docRef.id}`, 'success');
+        
+        document.getElementById('nomePopular').value = '';
+        
+        // Atualizar lista
+        await listarTermos();
+        
+      } catch (error) {
+        log(`❌ ERRO ao criar termo popular: ${error.message}`, 'error');
+        log(`   Code: ${error.code}`, 'error');
+        log(`   Stack: ${error.stack}`, 'error');
+        console.error('Erro completo:', error);
+      }
+    }
+
+    // Exportar funções globalmente
+    window.listarTermos = listarTermos;
+    window.verificarPermissoes = verificarPermissoes;
+    window.testarCriacaoPopular = testarCriacaoPopular;
+    window.criarTermoPopular = criarTermoPopular;
+  </script>
+</body>
+</html>

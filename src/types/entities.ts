@@ -13,6 +13,8 @@ export interface Termo {
   id: string
   cientifico: string
   populares: string[]
+  descricao?: string
+  tipo?: 'cientifico' | 'popular' | 'misto'
   area: Area
   categoria: string
   status: Status

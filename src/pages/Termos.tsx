@@ -59,9 +59,11 @@ export default function Termos() {
   const [termos, setTermos] = useState<any[]>([])
 
   const [showNew, setShowNew] = useState(false)
+  const [tipoTermo, setTipoTermo] = useState<'cientifico' | 'popular'>('cientifico')
   const [novo, setNovo] = useState({
     cientifico: '',
     populares: '',
+    descricao: '',
     area: 'Medicina',
     categoria: '',
     status: 'Pendente' as Status,
@@ -69,8 +71,10 @@ export default function Termos() {
 
   const [edit, setEdit] = useState<null | {
     id: string
+    tipo: 'cientifico' | 'popular'
     cientifico: string
     populares: string
+    descricao: string
     area: Area
     categoria: string
     status: Status
@@ -86,28 +90,61 @@ export default function Termos() {
   }, [])
 
   async function salvarNovo() {
-    if (!novo.cientifico.trim() || !novo.categoria) return
+    // Validar campos obrigatórios baseado no tipo
+    if (tipoTermo === 'cientifico' && !novo.cientifico.trim()) return
+    if (tipoTermo === 'popular' && !novo.populares.trim()) return
+    if (!novo.categoria) return
+    
     const atualizadoEm = new Date().toISOString().slice(0, 10)
-    const term = await termosApi.create({
-      cientifico: novo.cientifico.trim(),
-      populares: novo.populares ? novo.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
-      area: novo.area as Area,
-      categoria: novo.categoria,
-      status: novo.status,
-      atualizadoEm,
-    } as any)
+    
+    // Se for termo popular, deixar o campo científico vazio e preencher apenas populares
+    const dadosTermo = tipoTermo === 'cientifico' 
+      ? {
+          cientifico: novo.cientifico.trim(),
+          populares: novo.populares ? novo.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
+          descricao: novo.descricao.trim() || '',
+          tipo: 'cientifico' as const,
+          area: novo.area as Area,
+          categoria: novo.categoria,
+          status: novo.status,
+          atualizadoEm,
+        }
+      : {
+          cientifico: '', // Campo vazio para termo popular
+          populares: novo.populares.split(',').map(s => s.trim()).filter(Boolean),
+          descricao: novo.descricao.trim() || '',
+          tipo: 'popular' as const,
+          area: novo.area as Area,
+          categoria: novo.categoria,
+          status: novo.status,
+          atualizadoEm,
+        }
+    
+    const term = await termosApi.create(dadosTermo as any)
     setTermos(prev => [term, ...prev])
     setShowNew(false)
-    setNovo({ cientifico: '', populares: '', area: 'Medicina', categoria: '', status: 'Pendente' })
+    setNovo({ cientifico: '', populares: '', descricao: '', area: 'Medicina', categoria: '', status: 'Pendente' })
+    setTipoTermo('cientifico')
   }
 
   function abrirEdicao(t: any) {
     console.log('Dados do termo para edição:', t);
     try {
+      // Determinar o tipo baseado nos dados
+      let tipo: 'cientifico' | 'popular' = 'cientifico';
+      if (t.tipo) {
+        tipo = t.tipo === 'popular' ? 'popular' : 'cientifico';
+      } else {
+        // Fallback: se tem científico preenchido, é científico
+        tipo = (t.cientifico && t.cientifico.trim() !== '') ? 'cientifico' : 'popular';
+      }
+      
       setEdit({
         id: t.id,
+        tipo,
         cientifico: t.cientifico ?? '',
         populares: Array.isArray(t.populares) ? t.populares.join(', ') : '',
+        descricao: t.descricao ?? '',
         area: t.area,
         categoria: t.categoria ?? '',
         status: t.status,
@@ -130,14 +167,30 @@ export default function Termos() {
       const idToken = await user.getIdToken();
       console.log('Token do usuário:', idToken);
       const atualizadoEm = new Date().toISOString().slice(0, 10)
-      const patch = {
-        cientifico: edit.cientifico.trim(),
-        populares: edit.populares ? edit.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
-        area: edit.area,
-        categoria: edit.categoria,
-        status: edit.status,
-        atualizadoEm,
-      }
+      
+      // Construir dados baseado no tipo selecionado
+      const patch = edit.tipo === 'cientifico'
+        ? {
+            cientifico: edit.cientifico.trim(),
+            populares: edit.populares ? edit.populares.split(',').map(s => s.trim()).filter(Boolean) : [],
+            descricao: edit.descricao.trim() || '',
+            tipo: 'cientifico' as const,
+            area: edit.area,
+            categoria: edit.categoria,
+            status: edit.status,
+            atualizadoEm,
+          }
+        : {
+            cientifico: '',
+            populares: edit.populares.split(',').map(s => s.trim()).filter(Boolean),
+            descricao: edit.descricao.trim() || '',
+            tipo: 'popular' as const,
+            area: edit.area,
+            categoria: edit.categoria,
+            status: edit.status,
+            atualizadoEm,
+          }
+      
       await termosApi.update(edit.id, patch as any)
       setTermos(prev => prev.map(t => (t.id === edit.id ? { ...t, ...patch } : t)))
       setEdit(null)
@@ -208,8 +261,36 @@ export default function Termos() {
           <div className="card w-[560px] max-w-[95vw]">
             <div className="text-lg font-semibold mb-2">Adicionar novo termo</div>
             <div className="grid gap-3">
-              <input className="input" placeholder="Termo científico" value={novo.cientifico} onChange={e => setNovo({ ...novo, cientifico: e.target.value })}/>
-              <input className="input" placeholder="Nomes populares (separados por vírgula)" value={novo.populares} onChange={e => setNovo({ ...novo, populares: e.target.value })}/>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="tipoTermo" 
+                    value="cientifico"
+                    checked={tipoTermo === 'cientifico'}
+                    onChange={() => setTipoTermo('cientifico')}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium">Termo Científico</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="tipoTermo" 
+                    value="popular"
+                    checked={tipoTermo === 'popular'}
+                    onChange={() => setTipoTermo('popular')}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium">Termo Popular</span>
+                </label>
+              </div>
+              {tipoTermo === 'cientifico' ? (
+                <input className="input" placeholder="Digite o termo científico" value={novo.cientifico} onChange={e => setNovo({ ...novo, cientifico: e.target.value })}/>
+              ) : (
+                <input className="input" placeholder="Nomes populares (separados por vírgula)" value={novo.populares} onChange={e => setNovo({ ...novo, populares: e.target.value })}/>
+              )}
+              <textarea className="input min-h-[100px] resize-y" placeholder="Descrição do termo (opcional)" value={novo.descricao} onChange={e => setNovo({ ...novo, descricao: e.target.value })}/>
               <div className="grid grid-cols-2 gap-3">
                 <select className="select" value={novo.area} onChange={e => setNovo({ ...novo, area: e.target.value as Area })}>
                   <option>Medicina</option><option>Odontologia</option>
@@ -223,7 +304,10 @@ export default function Termos() {
                 <option value="Pendente">Pendente</option><option value="Verificado">Verificado</option>
               </select>
               <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setShowNew(false)} className="border rounded-xl px-4 py-2">Cancelar</button>
+                <button onClick={() => {
+                  setShowNew(false);
+                  setTipoTermo('cientifico');
+                }} className="border rounded-xl px-4 py-2">Cancelar</button>
                 <button onClick={salvarNovo} className="btn">Salvar</button>
               </div>
             </div>
@@ -237,8 +321,9 @@ export default function Termos() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-600">
-              <th className="py-2">Termo Científico</th>
-              <th>Nomes Populares</th>
+              <th className="py-2">Tipo</th>
+              <th>Nome do Termo</th>
+              <th>Descrição</th>
               <th>Área</th>
               <th>Categoria</th>
               <th>Status</th>
@@ -249,8 +334,26 @@ export default function Termos() {
           <tbody>
             {filtrados.map(t => (
               <tr key={t.id} className="border-t">
-                <td className="py-3">{t.cientifico}</td>
-                <td className="space-x-1">{t.populares?.map((p: string, i: number) => (<span key={i} className="badge bg-slate-100 text-slate-700">{p}</span>))}</td>
+                <td className="py-3">
+                  <span className={`badge ${
+                    t.tipo === 'cientifico' ? 'bg-indigo-100 text-indigo-700' : 
+                    t.tipo === 'popular' ? 'bg-amber-100 text-amber-700' :
+                    t.tipo === 'misto' ? 'bg-purple-100 text-purple-700' :
+                    t.cientifico ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {t.tipo === 'cientifico' ? 'Científico' : 
+                     t.tipo === 'popular' ? 'Popular' :
+                     t.tipo === 'misto' ? 'Misto' :
+                     t.cientifico ? 'Científico' : 'Popular'}
+                  </span>
+                </td>
+                <td className="py-3">
+                  {t.tipo === 'cientifico' || t.cientifico ? t.cientifico : 
+                   Array.isArray(t.populares) && t.populares.length > 0 ? t.populares.join(', ') : '-'}
+                </td>
+                <td className="py-3">
+                  {t.descricao || '-'}
+                </td>
                 <td><span className={'badge ' + (t.area === 'Medicina' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700')}>{t.area}</span></td>
                 <td>{t.categoria}</td>
                 <td>{t.status === 'Verificado'
@@ -305,8 +408,36 @@ export default function Termos() {
           <div className="card w-[560px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
             <div className="text-lg font-semibold mb-2">Editar termo</div>
             <div className="grid gap-3">
-              <input className="input" placeholder="Termo científico" value={edit.cientifico} onChange={e => setEdit({ ...edit, cientifico: e.target.value })}/>
-              <input className="input" placeholder="Nomes populares (separados por vírgula)" value={edit.populares} onChange={e => setEdit({ ...edit, populares: e.target.value })}/>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="tipoTermoEdit" 
+                    value="cientifico"
+                    checked={edit.tipo === 'cientifico'}
+                    onChange={() => setEdit({ ...edit, tipo: 'cientifico' })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium">Termo Científico</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="tipoTermoEdit" 
+                    value="popular"
+                    checked={edit.tipo === 'popular'}
+                    onChange={() => setEdit({ ...edit, tipo: 'popular' })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium">Termo Popular</span>
+                </label>
+              </div>
+              {edit.tipo === 'cientifico' ? (
+                <input className="input" placeholder="Digite o termo científico" value={edit.cientifico} onChange={e => setEdit({ ...edit, cientifico: e.target.value })}/>
+              ) : (
+                <input className="input" placeholder="Nomes populares (separados por vírgula)" value={edit.populares} onChange={e => setEdit({ ...edit, populares: e.target.value })}/>
+              )}
+              <textarea className="input min-h-[100px] resize-y" placeholder="Descrição do termo (opcional)" value={edit.descricao} onChange={e => setEdit({ ...edit, descricao: e.target.value })}/>
               <div className="grid grid-cols-2 gap-3">
                 <select className="select" value={edit.area} onChange={e => setEdit({ ...edit, area: e.target.value as Area })}>
                   <option>Medicina</option><option>Odontologia</option>

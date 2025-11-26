@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migração - Adicionar Campo Tipo</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2D1C87;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #2D1C87;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    button:hover {
+      background: #231569;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .log {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .log-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .success { color: #059669; }
+    .error { color: #dc2626; }
+    .info { color: #2563eb; }
+    .warning { color: #d97706; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 4px solid #2D1C87;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2D1C87;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔄 Migração: Adicionar Campo "tipo"</h1>
+    <p>Este script irá adicionar o campo <code>tipo</code> a todos os termos no Firestore.</p>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-value" id="total">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="cientificos">0</div>
+        <div class="stat-label">Científicos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="populares">0</div>
+        <div class="stat-label">Populares</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="mistos">0</div>
+        <div class="stat-label">Mistos</div>
+      </div>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #d97706;">
+      <strong>⚠️ Autenticação Necessária</strong>
+      <p style="margin: 10px 0 0 0; font-size: 14px;">
+        Este script precisa de um usuário admin autenticado. Por favor, faça login primeiro na aplicação principal ou insira suas credenciais abaixo.
+      </p>
+      <div style="margin-top: 10px;">
+        <input type="email" id="email" placeholder="Email do admin" style="padding: 8px; width: 250px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <input type="password" id="password" placeholder="Senha" style="padding: 8px; width: 200px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <button onclick="fazerLogin()" id="btnLogin">Login</button>
+      </div>
+    </div>
+
+    <button id="btnMigrar" onclick="executarMigracao()" disabled>Executar Migração</button>
+    <button onclick="limparLog()">Limpar Log</button>
+    
+    <div class="log" id="log"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, getDocs, writeBatch, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Configuração Firebase (da .env.local)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCpemY_iGcwMRVCI0Zi9_pXpFnevYund1U",
+      authDomain: "gerenciador-web-admin.firebaseapp.com",
+      projectId: "gerenciador-web-admin",
+      storageBucket: "gerenciador-web-admin.firebasestorage.app",
+      messagingSenderId: "156926606491",
+      appId: "1:156926606491:web:84af4a3d92837d439a1a3e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(item);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    window.limparLog = function() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    window.fazerLogin = async function() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const btnLogin = document.getElementById('btnLogin');
+      const btnMigrar = document.getElementById('btnMigrar');
+
+      if (!email || !password) {
+        log('❌ Por favor, insira email e senha', 'error');
+        return;
+      }
+
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Autenticando...';
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        // Verificar se é admin
+        const profileRef = doc(db, 'profiles', user.uid);
+        let profileSnap = await getDoc(profileRef);
+        
+        // Se não existe perfil, criar como admin
+        if (!profileSnap.exists()) {
+          await setDoc(profileRef, {
+            email: user.email,
+            role: 'admin',
+            criadoEm: new Date().toISOString()
+          });
+          log('✅ Perfil de admin criado', 'success');
+        } else {
+          const profile = profileSnap.data();
+          if (profile.role !== 'admin') {
+            log('❌ Usuário não é admin', 'error');
+            btnLogin.disabled = false;
+            btnLogin.textContent = 'Login';
+            return;
+          }
+        }
+
+        log(`✅ Autenticado como: ${user.email}`, 'success');
+        btnMigrar.disabled = false;
+        btnLogin.textContent = '✓ Autenticado';
+        document.getElementById('email').disabled = true;
+        document.getElementById('password').disabled = true;
+
+      } catch (error) {
+        log(`❌ Erro no login: ${error.message}`, 'error');
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Login';
+      }
+    }
+
+    window.executarMigracao = async function() {
+      const btn = document.getElementById('btnMigrar');
+      btn.disabled = true;
+      btn.textContent = 'Processando...';
+      
+      const statsDiv = document.getElementById('stats');
+      statsDiv.style.display = 'grid';
+
+      log('🔄 Iniciando migração...', 'info');
+
+      try {
+        const termosRef = collection(db, 'termos');
+        const snapshot = await getDocs(termosRef);
+        
+        log(`📊 Total de termos encontrados: ${snapshot.size}`, 'info');
+        
+        let cientificos = 0;
+        let populares = 0;
+        let mistos = 0;
+        let jaComTipo = 0;
+        let processados = 0;
+        
+        // Processar em batches de 500 (limite do Firestore)
+        const batchSize = 500;
+        let batch = writeBatch(db);
+        let batchCount = 0;
+        
+        for (const termoDoc of snapshot.docs) {
+          const termo = termoDoc.data();
+          
+          // Se já tem o campo tipo, pular
+          if (termo.tipo) {
+            log(`⏭️  Termo já possui tipo: ${termo.cientifico || termo.populares?.join(', ')}`, 'warning');
+            jaComTipo++;
+            continue;
+          }
+          
+          const temCientifico = termo.cientifico && termo.cientifico.trim() !== '';
+          const temPopulares = Array.isArray(termo.populares) && termo.populares.length > 0;
+          
+          let tipo;
+          if (temCientifico && temPopulares) {
+            tipo = 'misto';
+            mistos++;
+          } else if (temCientifico) {
+            tipo = 'cientifico';
+            cientificos++;
+          } else if (temPopulares) {
+            tipo = 'popular';
+            populares++;
+          } else {
+            tipo = 'indefinido';
+          }
+          
+          batch.update(termoDoc.ref, { tipo });
+          batchCount++;
+          processados++;
+          
+          log(`✅ ${tipo.toUpperCase()}: ${termo.cientifico || termo.populares?.join(', ')}`, 'success');
+          
+          // Atualizar estatísticas
+          document.getElementById('total').textContent = snapshot.size;
+          document.getElementById('cientificos').textContent = cientificos;
+          document.getElementById('populares').textContent = populares;
+          document.getElementById('mistos').textContent = mistos;
+          
+          // Commit batch a cada 500 documentos
+          if (batchCount === batchSize) {
+            await batch.commit();
+            log(`💾 Batch de ${batchSize} documentos salvo`, 'info');
+            batch = writeBatch(db);
+            batchCount = 0;
+          }
+        }
+        
+        // Commit do último batch se houver documentos restantes
+        if (batchCount > 0) {
+          await batch.commit();
+          log(`💾 Último batch de ${batchCount} documentos salvo`, 'info');
+        }
+        
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        log('📋 RESUMO DA MIGRAÇÃO', 'info');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        log(`🔬 Científicos: ${cientificos}`, 'info');
+        log(`💬 Populares: ${populares}`, 'info');
+        log(`🔀 Mistos: ${mistos}`, 'info');
+        log(`⏭️  Já tinham tipo: ${jaComTipo}`, 'warning');
+        log(`📦 Total processado: ${processados}`, 'info');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        log('✨ Migração concluída com sucesso!', 'success');
+        
+        btn.textContent = '✅ Migração Concluída';
+        
+      } catch (error) {
+        log(`❌ Erro: ${error.message}`, 'error');
+        console.error(error);
+        btn.disabled = false;
+        btn.textContent = 'Tentar Novamente';
+      }
+    }
+
+    // Exportar função globalmente
+    window.executarMigracao = executarMigracao;
+  </script>
+</body>
+</html>
