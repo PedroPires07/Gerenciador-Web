@@ -15,26 +15,22 @@ export default function AuthRegister() {
 
         <label className="block text-sm font-medium mb-1">Nome Completo</label>
         <div className="relative mb-3">
-          <span className="absolute left-3 top-2.5 text-slate-500"><UserPlus size={16}/></span>
-          <input id="nome" className="input pl-9" placeholder="Digite seu nome completo"/>
+          <input id="nome" className="input" placeholder="Digite seu nome completo"/>
         </div>
 
         <label className="block text-sm font-medium mb-1">E-mail</label>
         <div className="relative mb-3">
-          <span className="absolute left-3 top-2.5 text-slate-500"><Mail size={16}/></span>
-          <input id="email" className="input pl-9" placeholder="seu@email.com"/>
+          <input id="email" className="input" placeholder="seu@email.com"/>
         </div>
 
         <label className="block text-sm font-medium mb-1">Senha</label>
         <div className="relative mb-3">
-          <span className="absolute left-3 top-2.5 text-slate-500"><Lock size={16}/></span>
-          <input id="pass" className="input pl-9" placeholder="Mínimo 6 caracteres" type="password"/>
+          <input id="pass" className="input" placeholder="Mínimo 6 caracteres" type="password"/>
         </div>
 
         <label className="block text-sm font-medium mb-1">Confirmar Senha</label>
         <div className="relative mb-4">
-          <span className="absolute left-3 top-2.5 text-slate-500"><Lock size={16}/></span>
-          <input className="input pl-9" placeholder="Confirme sua senha" type="password"/>
+          <input className="input" placeholder="Confirme sua senha" type="password"/>
         </div>
 
         <div className="flex items-center gap-2 mb-4 text-sm">
